@@ -1,9 +1,8 @@
-use std::fs::File;
-use std::io::Read;
 use std::ops::Deref;
 use std::path::PathBuf;
 
 use actix::{Actor, Context, Handler, Message};
+use actix_web::web::Bytes;
 use http::Uri;
 use once_cell::sync::Lazy;
 
@@ -13,18 +12,14 @@ use crate::jar_manager::special_cache::SpecialCache;
 mod rimfs;
 mod special_cache;
 
-static JAR_CACHE: Lazy<PathBuf> = Lazy::new(|| {
-    PathBuf::from("./jars")
-});
-
-const MAX_CACHE_SIZE: usize = 100_000_000;
+static JAR_CACHE: Lazy<PathBuf> = Lazy::new(|| PathBuf::from("./jars"));
 
 fn resolve_jar(request: &JarDataRequest) -> PathBuf {
     let mut copy = PathBuf::from(JAR_CACHE.deref());
     copy.push(&request.group);
     copy.push(&request.name);
     copy.push(format!("{}.jar", request.version));
-    return copy;
+    copy
 }
 
 pub struct JarManager {
@@ -32,18 +27,21 @@ pub struct JarManager {
     cache_fs: SpecialCache<PathBuf, InMemoryFs>,
 }
 
-
 impl JarManager {
-    pub fn new(maven: Uri) -> JarManager {
-        return JarManager {
+    pub fn new(maven: Uri, cache_size: usize) -> JarManager {
+        JarManager {
             maven,
-            cache_fs: SpecialCache::new(MAX_CACHE_SIZE),
-        };
+            cache_fs: SpecialCache::new(cache_size),
+        }
     }
 }
 
 impl Actor for JarManager {
     type Context = Context<Self>;
+
+    fn started(&mut self, ctx: &mut Self::Context) {
+        ctx.set_mailbox_capacity(10_000);
+    }
 }
 
 impl Handler<JarDataRequest> for JarManager {
@@ -59,44 +57,34 @@ impl Handler<JarDataRequest> for JarManager {
                 msg.name,
                 msg.version,
                 format!("{}-{}-javadoc.jar", msg.name, msg.version)
-            )).send()
-                .and_then(|r| r.error_for_status())?;
+            ))
+            .send()
+            .and_then(|r| r.error_for_status())?;
+            std::fs::create_dir_all(path.parent().unwrap())?;
             let mut file = std::fs::File::create(path.clone())?;
             std::io::copy(&mut request, &mut file)?;
         }
-        let cache_entry = (&self.cache_fs).get(&path);
+        let cache_entry = (&mut self.cache_fs).get(&path);
         let fs = match cache_entry {
             Some(x) => x,
             None => {
-                (&self.cache_fs).add(PathBuf::from(path), InMemoryFs::from_zip(&path)?);
-                (&self.cache_fs).get(&path).unwrap()
+                (&mut self.cache_fs).add(PathBuf::from(&path), InMemoryFs::from_zip(&path)?);
+                (&mut self.cache_fs).get(&path).unwrap()
             }
         };
 
-        Ok(Box::from(fs.reader(msg.path)?))
-    }
-}
-
-struct JarDataReader<'a> {
-    zip_ar: &'a zip::read::ZipArchive<File>,
-    file: zip::read::ZipFile<'a>,
-}
-
-impl Read for JarDataReader<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        return self.file.read(buf);
+        fs.bytes(msg.path)
     }
 }
 
 pub struct JarDataRequest {
-    group: String,
-    name: String,
-    version: String,
-    path: String,
+    pub group: String,
+    pub name: String,
+    pub version: String,
+    pub path: String,
 }
 
 impl Message for JarDataRequest {
     /// The reader for the data from the JAR, or an I/O error.
-    type Result = std::io::Result<Box<dyn Read>>;
+    type Result = std::io::Result<Bytes>;
 }
-
