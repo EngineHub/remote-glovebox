@@ -1,11 +1,11 @@
 use std::cmp::min;
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read};
-use std::path::Path;
 
 use crate::jar_manager::special_cache::RuntimeSized;
 use actix_web::web::{Bytes, BytesMut};
 use bytes::buf::BufMutExt;
+use std::fs::File;
 
 pub struct InMemoryFs {
     size: usize,
@@ -13,9 +13,9 @@ pub struct InMemoryFs {
 }
 
 impl InMemoryFs {
-    pub fn from_zip(path: &Path) -> std::io::Result<InMemoryFs> {
+    pub fn from_zip(file: &File) -> std::io::Result<InMemoryFs> {
         let mut map = HashMap::<String, Bytes>::new();
-        let mut zip_ar = zip::ZipArchive::new(std::fs::File::open(path)?)?;
+        let mut zip_ar = zip::ZipArchive::new(file)?;
         for i in 0..zip_ar.len() {
             let mut file = zip_ar.by_index(i).unwrap();
             let mut mut_bytes = BytesMut::with_capacity(file.size() as usize).writer();

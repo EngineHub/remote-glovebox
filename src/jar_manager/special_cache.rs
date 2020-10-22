@@ -1,5 +1,6 @@
 use std::hash::Hash;
 
+use byte_unit::Byte;
 use lru::LruCache;
 
 /// A very special cache.
@@ -9,7 +10,7 @@ where
     K: Hash + Eq,
     V: RuntimeSized,
 {
-    capacity: usize,
+    capacity: Byte,
     size: usize,
     cache: LruCache<K, V>,
 }
@@ -19,7 +20,7 @@ where
     K: Hash + Eq,
     V: RuntimeSized,
 {
-    pub fn new(capacity: usize) -> SpecialCache<K, V> {
+    pub fn new(capacity: Byte) -> SpecialCache<K, V> {
         SpecialCache {
             capacity,
             size: 0,
@@ -34,7 +35,7 @@ where
     /// Add the given entry, evicting older entries if needed
     pub fn add(&mut self, key: K, value: V) {
         let size = value.size();
-        while self.size + size > self.capacity {
+        while Byte::from(self.size + size) > self.capacity {
             // don't loop forever
             if self.size == 0 {
                 panic!("Value is bigger than cache size");

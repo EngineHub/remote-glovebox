@@ -21,9 +21,15 @@ struct Glovebox {
     #[structopt(
         long,
         help = "The amount of memory for the JAR cache, approximately",
-        default_value = "100000000"
+        default_value = "100MiB"
     )]
-    jar_cache_size: usize,
+    jar_mem_cache_size: byte_unit::Byte,
+    #[structopt(
+        long,
+        help = "The amount of disk space for the JAR cache, approximately",
+        default_value = "10GiB"
+    )]
+    jar_fs_cache_size: byte_unit::Byte,
 }
 
 struct GloveboxData {
@@ -34,11 +40,14 @@ struct GloveboxData {
 async fn main() -> anyhow::Result<()> {
     simplelog::TermLogger::init(LevelFilter::Debug, Config::default(), TerminalMode::Stderr)?;
 
-    HttpServer::new(|| {
-        let args: Glovebox = Glovebox::from_args();
+    let args: Glovebox = Glovebox::from_args();
+    let jar_manager =
+        JarManager::new(args.maven, args.jar_mem_cache_size, args.jar_fs_cache_size)?.start();
+
+    HttpServer::new(move || {
         App::new()
             .data(GloveboxData {
-                jar_manager: JarManager::new(args.maven, args.jar_cache_size).start(),
+                jar_manager: jar_manager.clone(),
             })
             .service(
                 // prefixes all resources and routes attached to it...
