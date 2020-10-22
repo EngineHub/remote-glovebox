@@ -27,7 +27,7 @@ struct Glovebox {
     #[structopt(
         long,
         help = "The amount of disk space for the JAR cache, approximately",
-        default_value = "10GiB"
+        default_value = "1GiB"
     )]
     jar_fs_cache_size: byte_unit::Byte,
 }
@@ -105,6 +105,10 @@ async fn javadoc(
             path: fixed_path,
         })
         .await
-        .map_err(actix_web::error::ErrorInternalServerError)??;
+        .map_err(actix_web::error::ErrorInternalServerError)?
+        .map_err(|e| match e {
+            jar_manager::Error::NotFound => actix_web::error::ErrorNotFound(e),
+            _ => actix_web::error::ErrorInternalServerError(e),
+        })?;
     Ok(HttpResponse::Ok().body(bytes))
 }
