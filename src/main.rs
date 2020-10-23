@@ -1,6 +1,8 @@
 #![deny(warnings)]
 
 use actix::{Actor, Addr};
+use actix_web::body::Body;
+use actix_web::dev::Service;
 use actix_web::{get, web, App, HttpResponse, HttpServer, Result};
 use anyhow::Context;
 use http::Uri;
@@ -48,6 +50,13 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .data(GloveboxData {
                 jar_manager: jar_manager.clone(),
+            })
+            .wrap_fn::<Body, _, _>(|mut req, srv| {
+                if req.method() == http::Method::HEAD {
+                    // treat head as a get
+                    req.head_mut().method = http::Method::GET;
+                }
+                srv.call(req)
             })
             .service(
                 // prefixes all resources and routes attached to it...
@@ -102,7 +111,7 @@ async fn javadoc(
             group: String::from(&info.group),
             name: String::from(&info.name),
             version: String::from(&info.version),
-            path: fixed_path,
+            path: String::from(&fixed_path),
         })
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?
@@ -110,5 +119,17 @@ async fn javadoc(
             jar_manager::Error::NotFound => actix_web::error::ErrorNotFound(e),
             _ => actix_web::error::ErrorInternalServerError(e),
         })?;
-    Ok(HttpResponse::Ok().body(bytes))
+    let mut response = HttpResponse::Ok();
+    if let Some(index) = fixed_path.find('.') {
+        response.content_type(
+            match &fixed_path[index + 1..] {
+                "html" => mime::TEXT_HTML,
+                "js" => mime::APPLICATION_JAVASCRIPT,
+                "css" => mime::TEXT_CSS,
+                _ => mime::APPLICATION_OCTET_STREAM,
+            }
+            .as_ref(),
+        );
+    }
+    Ok(response.body(bytes))
 }
