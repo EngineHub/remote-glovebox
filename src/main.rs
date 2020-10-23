@@ -1,8 +1,10 @@
 #![deny(warnings)]
 
 use actix::{Actor, Addr};
-use actix_web::body::Body;
+use actix_web::body::{Body, ResponseBody};
 use actix_web::dev::Service;
+use actix_web::middleware::errhandlers::{ErrorHandlerResponse, ErrorHandlers};
+use actix_web::web::Bytes;
 use actix_web::{get, web, App, HttpResponse, HttpServer, Result};
 use anyhow::Context;
 use http::Uri;
@@ -12,12 +14,17 @@ use simplelog::{Config, TerminalMode};
 use structopt::StructOpt;
 
 use crate::jar_manager::{JarDataRequest, JarManager};
+use actix_web::http::HeaderValue;
 
 mod jar_manager;
 
 #[derive(StructOpt)]
 #[structopt(name = "glovebox", about = "A Javadoc Server")]
 struct Glovebox {
+    #[structopt(short, long, help = "The host to bind to", default_value = "localhost")]
+    host: String,
+    #[structopt(short, long, help = "The port to bind to", default_value = "8080")]
+    port: u32,
     #[structopt(long, help = "The URI to contact for JARs")]
     maven: Uri,
     #[structopt(
@@ -47,10 +54,19 @@ async fn main() -> anyhow::Result<()> {
         JarManager::new(args.maven, args.jar_mem_cache_size, args.jar_fs_cache_size)?.start();
 
     HttpServer::new(move || {
+        let four_zero_four_page = std::fs::read_to_string("./404.html")
+            .ok()
+            .map(Bytes::from)
+            .unwrap_or_else(|| Bytes::from("Not found, try /javadoc/{group}/{name}/{version}"));
         App::new()
             .data(GloveboxData {
                 jar_manager: jar_manager.clone(),
             })
+            .wrap(
+                ErrorHandlers::new().handler(http::StatusCode::NOT_FOUND, move |res| {
+                    render_404(four_zero_four_page.clone(), res)
+                }),
+            )
             .wrap_fn::<Body, _, _>(|mut req, srv| {
                 if req.method() == http::Method::HEAD {
                     // treat head as a get
@@ -65,10 +81,23 @@ async fn main() -> anyhow::Result<()> {
                     .service(javadoc),
             )
     })
-    .bind("127.0.0.1:8080")?
+    .bind(format!("{}:{}", args.host, args.port))?
     .run()
     .await
     .context("HTTP Server Error")
+}
+
+fn render_404(
+    page: Bytes,
+    mut res: actix_web::dev::ServiceResponse<Body>,
+) -> Result<ErrorHandlerResponse<Body>> {
+    res.headers_mut().insert(
+        http::header::CONTENT_TYPE,
+        HeaderValue::from_str(mime::TEXT_HTML.as_ref())?,
+    );
+    Ok(ErrorHandlerResponse::Response(
+        res.map_body(|_, _| ResponseBody::Other(page.into())),
+    ))
 }
 
 #[derive(Deserialize)]
