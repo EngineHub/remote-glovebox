@@ -1,8 +1,10 @@
 #![deny(warnings)]
+#![feature(future_readiness_fns)]
 
 use actix::{Actor, Addr};
 use actix_web::body::{Body, ResponseBody};
 use actix_web::dev::Service;
+use actix_web::http::HeaderValue;
 use actix_web::middleware::errhandlers::{ErrorHandlerResponse, ErrorHandlers};
 use actix_web::web::Bytes;
 use actix_web::{get, web, App, HttpResponse, HttpServer, Result};
@@ -14,9 +16,9 @@ use simplelog::{Config, TerminalMode};
 use structopt::StructOpt;
 
 use crate::jar_manager::{JarDataRequest, JarManager};
-use actix_web::http::HeaderValue;
 
 mod jar_manager;
+mod maven;
 
 #[derive(StructOpt)]
 #[structopt(name = "glovebox", about = "A Javadoc Server")]

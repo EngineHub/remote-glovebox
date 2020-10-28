@@ -1,11 +1,12 @@
 use std::cmp::min;
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::{ErrorKind, Read};
 
-use crate::jar_manager::special_cache::RuntimeSized;
 use actix_web::web::{Bytes, BytesMut};
 use bytes::buf::BufMutExt;
-use std::fs::File;
+
+use crate::jar_manager::special_cache::RuntimeSized;
 
 pub struct InMemoryFs {
     size: usize,
