@@ -21,6 +21,8 @@ import java.nio.file.FileSystem
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.coroutineContext
@@ -75,7 +77,12 @@ class JarManager(
     }
 
     private suspend fun resolveKindToRequest(group: String, name: String, kind: VersionKind): ArtifactRequest {
-        val version = versionMap.computeIfAbsent(VersionCacheKey(group, name, kind)) { key ->
+        val version = versionMap.compute(VersionCacheKey(group, name, kind)) { key, existingValue ->
+            // if it's good, re-use it
+            if (existingValue != null && existingValue.expireTime.isAfter(Instant.now())) {
+                return@compute existingValue
+            }
+            // re-compute the version
             try {
                 val metadata = mavenApi.getMetadata(MetadataRequest(group, name))
                 kind.extractVersion(metadata).also {
@@ -85,7 +92,7 @@ class JarManager(
                 }
             } catch (e: NotFoundException) {
                 logger.info { "No maven-metadata.xml for $key was available: ${e.message}" }
-                ResolvedVersion.None
+                ResolvedVersion.None()
             }
         }
         return when (version) {
@@ -96,8 +103,9 @@ class JarManager(
 }
 
 internal sealed class ResolvedVersion {
-    object None : ResolvedVersion()
-    data class Some(val version: String) : ResolvedVersion()
+    val expireTime: Instant = Instant.now().plus(30, ChronoUnit.MINUTES)
+    class None : ResolvedVersion()
+    class Some(val version: String) : ResolvedVersion()
 }
 
 internal class SimpleFSWrapper(override val size: Long, val fs: FileSystem) : Sized, AutoCloseable by fs
@@ -138,12 +146,12 @@ internal fun loadZipFs(name: String, content: InputStream): SimpleFSWrapper {
 internal enum class VersionKind {
     RELEASE {
         override fun extractVersion(metadata: MavenMetadata): ResolvedVersion {
-            return metadata.versioning.release?.let { ResolvedVersion.Some(it) } ?: ResolvedVersion.None
+            return metadata.versioning.release?.let { ResolvedVersion.Some(it) } ?: ResolvedVersion.None()
         }
     },
     SNAPSHOT {
         override fun extractVersion(metadata: MavenMetadata): ResolvedVersion {
-            return metadata.versioning.latest?.let { ResolvedVersion.Some(it) } ?: ResolvedVersion.None
+            return metadata.versioning.latest?.let { ResolvedVersion.Some(it) } ?: ResolvedVersion.None()
         }
     },
     ;

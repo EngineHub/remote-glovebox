@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import okhttp3.Cache
+import okhttp3.CacheControl
 import okhttp3.HttpUrl
 import org.enginehub.rglovebox.byteunits.ByteUnit
 import org.enginehub.rglovebox.byteunits.ByteValue
@@ -33,6 +34,12 @@ class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
                         fsCacheSize.convert(ByteUnit.BYTE).amount.longValueExact()
                     )
                 )
+                // always hit the network and do conditional GET, it's pretty in-expensive
+                addInterceptor {
+                    it.proceed(it.request().newBuilder()
+                        .cacheControl(CacheControl.FORCE_NETWORK)
+                        .build())
+                }
             }
         }
     }

@@ -31,4 +31,10 @@ class SimpleCoroMap<K, V> {
         }
     }
 
+    suspend fun compute(key: K, func: suspend (key: K, value: V?) -> V): V {
+        return rwLock.withWriteLock {
+            func(key, map[key]).also { map[key] = it }
+        }
+    }
+
 }
