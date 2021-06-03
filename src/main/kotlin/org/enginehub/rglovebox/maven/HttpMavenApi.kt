@@ -45,12 +45,12 @@ import org.enginehub.rglovebox.byteunits.ByteUnit
 import org.enginehub.rglovebox.byteunits.ByteValue
 import org.enginehub.rglovebox.maven.api.*
 import java.io.File
-import kotlin.coroutines.coroutineContext
 
 class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
 
     private val repo = with(HttpUrl.Companion) { repo.toHttpUrl() }
     private val httpClient = HttpClient(OkHttp) {
+        expectSuccess = false
         engine {
             config {
                 cache(

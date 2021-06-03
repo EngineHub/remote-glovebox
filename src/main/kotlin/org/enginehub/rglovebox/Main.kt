@@ -53,7 +53,6 @@ import java.math.BigInteger
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
-import java.time.ZoneOffset
 
 private val logger = KotlinLogging.logger { }
 
@@ -123,50 +122,62 @@ fun Application.module(jarManager: JarManager) {
     }
 
     routing {
-        get("/javadoc/{group}/{name}/{version}/{path...}") {
-            val group = call.parameters["group"]!!
-            val name = call.parameters["name"]!!
-            val version = call.parameters["version"]!!
-            val path = call.parameters.getAll("path")?.joinToString("/") ?: "/"
-            if (path == "/" && !call.request.uri.endsWith("/")) {
+        route("/javadoc/{group}/{name}/{version}") {
+            get {
+                val version = call.parameters["version"]!!
                 logger.info { "Redirecting ${call.request.uri}" }
                 // we need a slash on the end for jdoc to resolve properly
                 call.respondRedirect("./${version}/")
                 return@get
             }
-            if (path == "resources/fonts/dejavu.css") {
-                // special-case this, so it doesn't show an error in the network log
-                call.respondText("", ContentType.Text.CSS)
-                return@get
+            get("/{path...}") {
+                serveJarEntry(jarManager)
             }
-            try {
-                val entry = jarManager.get(group, name, version, path)
-
-                when (val result = entry.contentVersion.check(call.request.headers)) {
-                    VersionCheckResult.OK -> {
-                        // Nothing happens here, we need to proceed
-                    }
-                    else -> {
-                        call.respond(HttpStatusCodeContent(result.statusCode))
-                        return@get
-                    }
-                }
-
-                val headers = Headers.build {
-                    entry.contentVersion.appendHeadersTo(this)
-                }
-
-                val responseHeaders = call.response.headers
-                headers.forEach { headerName, values ->
-                    values.forEach { responseHeaders.append(headerName, it) }
-                }
-
-                call.respond(ByteArrayContent(entry.bytes, entry.contentType, HttpStatusCode.OK))
-            } catch (e: NotFoundException) {
-                logger.info(e) { "Didn't find this..." }
-                throw MissingJavadocException()
+            get("/{path...}/") {
+                serveJarEntry(jarManager)
             }
         }
+    }
+}
+
+private suspend fun PipelineContext<Unit, ApplicationCall>.serveJarEntry(
+    jarManager: JarManager
+) {
+    val group = call.parameters["group"]!!
+    val name = call.parameters["name"]!!
+    val version = call.parameters["version"]!!
+    val path = call.parameters.getAll("path")?.joinToString("/") ?: "/"
+    if (path == "resources/fonts/dejavu.css") {
+        // special-case this, so it doesn't show an error in the network log
+        call.respondText("", ContentType.Text.CSS)
+        return
+    }
+    try {
+        val entry = jarManager.get(group, name, version, path)
+
+        when (val result = entry.contentVersion.check(call.request.headers)) {
+            VersionCheckResult.OK -> {
+                // Nothing happens here, we need to proceed
+            }
+            else -> {
+                call.respond(HttpStatusCodeContent(result.statusCode))
+                return
+            }
+        }
+
+        val headers = Headers.build {
+            entry.contentVersion.appendHeadersTo(this)
+        }
+
+        val responseHeaders = call.response.headers
+        headers.forEach { headerName, values ->
+            values.forEach { responseHeaders.append(headerName, it) }
+        }
+
+        call.respond(ByteArrayContent(entry.bytes, entry.contentType, HttpStatusCode.OK))
+    } catch (e: NotFoundException) {
+        logger.info(e) { "Didn't find this..." }
+        throw MissingJavadocException()
     }
 }
 
