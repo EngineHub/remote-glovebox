@@ -26,6 +26,7 @@
 package org.enginehub.rglovebox.cache
 
 import com.google.common.collect.ImmutableSet
+import com.google.common.hash.Hashing
 import com.google.common.io.ByteStreams
 import com.google.common.jimfs.Configuration
 import com.google.common.jimfs.Jimfs
@@ -60,7 +61,7 @@ class JarManager(
     private val versionMap = SimpleCoroMap<VersionCacheKey, ResolvedVersion>()
     private val jarMap = LimitedSizeCache<JarCacheKey, SimpleFSWrapper>(memCacheSize)
 
-    suspend fun get(group: String, name: String, version: String, path: String): OutgoingContent {
+    suspend fun get(group: String, name: String, version: String, path: String): SendableJarEntry {
         val request = resolveRequest(group, name, version)
         val jarCacheKey = JarCacheKey(request.group, request.name, request.fileVersion)
         jarMap.getOrFill(jarCacheKey) { cacheKey ->
@@ -80,14 +81,16 @@ class JarManager(
             }
             // This doesn't actually do any I/O, so there's no need to switch
             val bytes = Files.readAllBytes(p)
-            return ByteArrayContent(
+            val hash = Hashing.murmur3_128().hashBytes(bytes).toString()
+            return SendableJarEntry(
                 bytes,
                 when (p.extension) {
                     "html" -> ContentType.Text.Html
                     "css" -> ContentType.Text.CSS
                     "js" -> ContentType.Text.JavaScript
                     else -> ContentType.Application.OctetStream
-                }
+                },
+                contentVersion = EntityTagVersion(hash)
             )
         }
     }

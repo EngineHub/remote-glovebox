@@ -35,6 +35,7 @@ import com.github.ajalt.clikt.parameters.types.int
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
@@ -52,6 +53,7 @@ import java.math.BigInteger
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
+import java.time.ZoneOffset
 
 private val logger = KotlinLogging.logger { }
 
@@ -109,6 +111,16 @@ fun Application.module(jarManager: JarManager) {
         header("X-Content-Type-Options", "nosniff")
     }
     install(CallLogging)
+    install(CachingHeaders) {
+        options { outgoingContent ->
+            when (outgoingContent.contentType?.withoutParameters()) {
+                ContentType.Text.CSS, ContentType.Text.JavaScript, ContentType.Text.Html -> CachingOptions(
+                    CacheControl.MaxAge(maxAgeSeconds = 3600)
+                )
+                else -> null
+            }
+        }
+    }
 
     routing {
         get("/javadoc/{group}/{name}/{version}/{path...}") {
@@ -128,7 +140,28 @@ fun Application.module(jarManager: JarManager) {
                 return@get
             }
             try {
-                call.respond(jarManager.get(group, name, version, path))
+                val entry = jarManager.get(group, name, version, path)
+
+                when (val result = entry.contentVersion.check(call.request.headers)) {
+                    VersionCheckResult.OK -> {
+                        // Nothing happens here, we need to proceed
+                    }
+                    else -> {
+                        call.respond(HttpStatusCodeContent(result.statusCode))
+                        return@get
+                    }
+                }
+
+                val headers = Headers.build {
+                    entry.contentVersion.appendHeadersTo(this)
+                }
+
+                val responseHeaders = call.response.headers
+                headers.forEach { headerName, values ->
+                    values.forEach { responseHeaders.append(headerName, it) }
+                }
+
+                call.respond(ByteArrayContent(entry.bytes, entry.contentType, HttpStatusCode.OK))
             } catch (e: NotFoundException) {
                 logger.info(e) { "Didn't find this..." }
                 throw MissingJavadocException()
