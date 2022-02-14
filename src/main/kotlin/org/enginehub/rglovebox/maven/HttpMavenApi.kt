@@ -69,7 +69,7 @@ class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
         }
     }
     private val mapper = XmlMapper.builder()
-        .addModules(KotlinModule())
+        .addModules(KotlinModule.Builder().build())
         .build()
 
     override suspend fun getArtifact(request: ArtifactRequest): ByteReadChannel {
