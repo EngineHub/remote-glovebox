@@ -40,9 +40,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
 
-    implementation(platform("io.ktor:ktor-bom:1.6.8"))
+    implementation(platform("io.ktor:ktor-bom:2.0.2"))
     implementation("io.ktor:ktor-server-core")
     implementation("io.ktor:ktor-server-netty")
+    implementation("io.ktor:ktor-server-caching-headers")
+    implementation("io.ktor:ktor-server-call-logging")
+    implementation("io.ktor:ktor-server-default-headers")
+    implementation("io.ktor:ktor-server-status-pages")
     implementation("io.ktor:ktor-client-core")
     implementation("io.ktor:ktor-client-okhttp")
 

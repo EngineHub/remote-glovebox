@@ -84,14 +84,14 @@ class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
             )
             .build()
             .toUrl()
-        val response = httpClient.get<HttpResponse>(resolvedUrl)
+        val response = httpClient.get(resolvedUrl)
         if (response.status == HttpStatusCode.NotFound) {
             throw NotFoundException("Received 404 for $realReq ($resolvedUrl)")
         }
         require(response.status.isSuccess()) {
             "Failed to get $request"
         }
-        return response.content
+        return response.bodyAsChannel()
     }
 
     private suspend fun fixSnapshot(request: ArtifactRequest): ArtifactRequest {
@@ -115,7 +115,7 @@ class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
             )
             .build()
             .toUrl()
-        val response = httpClient.get<HttpResponse>(resolvedUrl)
+        val response = httpClient.get(resolvedUrl)
         if (response.status == HttpStatusCode.NotFound) {
             throw NotFoundException("Received 404 for $request's maven-metadata.xml ($resolvedUrl)")
         }
@@ -123,7 +123,7 @@ class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
             "Failed to get $request"
         }
         return withContext(Dispatchers.IO) {
-            response.content.toInputStream(coroutineContext.job).use {
+            response.bodyAsChannel().toInputStream(coroutineContext.job).use {
                 mapper.readValue(it)
             }
         }

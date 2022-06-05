@@ -32,15 +32,19 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.int
-import io.ktor.application.*
-import io.ktor.features.*
 import io.ktor.http.*
 import io.ktor.http.content.*
-import io.ktor.request.*
-import io.ktor.response.*
-import io.ktor.routing.*
+import io.ktor.server.application.*
 import io.ktor.server.engine.*
+import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.cachingheaders.*
+import io.ktor.server.plugins.callloging.*
+import io.ktor.server.plugins.defaultheaders.*
+import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import io.ktor.util.pipeline.*
 import mu.KotlinLogging
 import org.enginehub.rglovebox.byteunits.ByteUnit
@@ -89,19 +93,19 @@ fun Application.module(jarManager: JarManager) {
         "This page does not exist."
     }
     install(StatusPages) {
-        exception<Throwable> { cause ->
+        exception<Throwable> { call, cause ->
             logger.warn(cause) { "Unexpected exception in call route" }
             call.respond(HttpStatusCode.InternalServerError, "Internal Server Error.")
         }
 
-        suspend fun PipelineContext<*, ApplicationCall>.handleNotFound(notFoundPage: String) {
-            call.respondText(ContentType.Text.Html, HttpStatusCode.NotFound) { notFoundPage }
+        suspend fun ApplicationCall.handleNotFound(notFoundPage: String) {
+            respondText(ContentType.Text.Html, HttpStatusCode.NotFound) { notFoundPage }
         }
-        exception<MissingJavadocException> {
-            handleNotFound(notFoundPage)
+        exception<MissingJavadocException> { call, _ ->
+            call.handleNotFound(notFoundPage)
         }
-        status(HttpStatusCode.NotFound) {
-            handleNotFound(notFoundPage)
+        status(HttpStatusCode.NotFound) { call, _ ->
+            call.handleNotFound(notFoundPage)
         }
     }
     install(DefaultHeaders) {
@@ -111,7 +115,7 @@ fun Application.module(jarManager: JarManager) {
     }
     install(CallLogging)
     install(CachingHeaders) {
-        options { outgoingContent ->
+        options { _, outgoingContent ->
             when (outgoingContent.contentType?.withoutParameters()) {
                 ContentType.Text.CSS, ContentType.Text.JavaScript, ContentType.Text.Html -> CachingOptions(
                     CacheControl.MaxAge(maxAgeSeconds = 3600)
