@@ -59,7 +59,9 @@ class JarManager(
     private val mavenApi: MavenApi
 ) {
     private val versionMap = SimpleCoroMap<VersionCacheKey, ResolvedVersion>()
-    private val jarMap = LimitedSizeCache<JarCacheKey, SimpleFSWrapper>(memCacheSize)
+    private val jarMap = LimitedSizeCache<JarCacheKey, SimpleFSWrapper>(memCacheSize, onRemoval = { _, remValue ->
+        remValue.close()
+    })
 
     suspend fun get(group: String, name: String, version: String, path: String): SendableJarEntry {
         val request = resolveRequest(group, name, version)

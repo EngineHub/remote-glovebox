@@ -38,7 +38,10 @@ private val logger = KotlinLogging.logger { }
 /**
  * If the [limit] is exceeded by the sum of values, drops the least-recently-used value.
  */
-class LimitedSizeCache<K, V : Sized>(private val limit: ByteValue) {
+class LimitedSizeCache<K, V : Sized>(
+    private val limit: ByteValue,
+    private val onRemoval: (K, V) -> Unit,
+) {
 
     private val maxSize = limit.convert(ByteUnit.BYTE).amount.longValueExact()
     private var size: Long = 0L
@@ -88,6 +91,7 @@ class LimitedSizeCache<K, V : Sized>(private val limit: ByteValue) {
                         // this is currently being used, can't remove it
                         continue
                     }
+                    onRemoval(removedKey, removed)
                     iter.remove()
                     size -= removed.size
                     (removed as? AutoCloseable)?.close()
