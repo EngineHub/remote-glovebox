@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.6.21"
+    kotlin("jvm") version "1.9.0"
     application
     id("org.cadixdev.licenser") version "0.6.1"
 }
@@ -21,8 +21,8 @@ license {
 
 kotlin.target.compilations.configureEach {
     kotlinOptions {
-        jvmTarget = "1.8"
-        freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn")
+        jvmTarget = "17"
+        options.optIn = listOf("kotlin.RequiresOptIn")
     }
 }
 
@@ -36,11 +36,11 @@ dependencies {
     implementation(platform(kotlin("bom")))
     implementation(kotlin("stdlib-jdk8"))
 
-    implementation(platform("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.6.2"))
+    implementation(platform("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.7.2"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
 
-    implementation(platform("io.ktor:ktor-bom:2.0.2"))
+    implementation(platform("io.ktor:ktor-bom:2.3.2"))
     implementation("io.ktor:ktor-server-core")
     implementation("io.ktor:ktor-server-netty")
     implementation("io.ktor:ktor-server-caching-headers")
@@ -50,22 +50,22 @@ dependencies {
     implementation("io.ktor:ktor-client-core")
     implementation("io.ktor:ktor-client-okhttp")
 
-    implementation("com.github.ajalt.clikt:clikt:3.4.2")
+    implementation("com.github.ajalt.clikt:clikt:4.1.0")
 
-    implementation("org.slf4j:slf4j-api:1.7.36")
-    implementation("ch.qos.logback:logback-classic:1.2.11")
-    implementation("ch.qos.logback:logback-core:1.2.11")
-    implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
+    implementation("org.slf4j:slf4j-api:2.0.7")
+    implementation("ch.qos.logback:logback-classic:1.4.8")
+    implementation("ch.qos.logback:logback-core:1.4.8")
+    implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
-    implementation("com.google.guava:guava:31.1-jre")
-    implementation("com.google.jimfs:jimfs:1.2")
-    implementation("org.mapdb:mapdb:3.0.8")
+    implementation("com.google.guava:guava:32.1.1-jre")
+    implementation("com.google.jimfs:jimfs:1.3.0")
+    implementation("org.mapdb:mapdb:3.0.9")
 
-    implementation(platform("com.fasterxml.jackson:jackson-bom:2.13.3"))
+    implementation(platform("com.fasterxml.jackson:jackson-bom:2.15.2"))
     implementation("com.fasterxml.jackson.core:jackson-core")
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.fasterxml.jackson.core:jackson-annotations")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml")
-    runtimeOnly("com.fasterxml.woodstox:woodstox-core:6.2.8")
+    runtimeOnly("com.fasterxml.woodstox:woodstox-core:6.5.1")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 }

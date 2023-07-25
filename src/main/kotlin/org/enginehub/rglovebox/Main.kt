@@ -27,7 +27,7 @@ package org.enginehub.rglovebox
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.context
-import com.github.ajalt.clikt.output.CliktHelpFormatter
+import com.github.ajalt.clikt.output.MordantHelpFormatter
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
@@ -75,7 +75,7 @@ class Main : CliktCommand(help = "Run remote-glovebox", name = "remote-glovebox"
         .default(ByteValue(BigInteger.valueOf(512), ByteUnit.MEBIBYTE))
 
     init {
-        context { helpFormatter = CliktHelpFormatter(maxWidth = 160, showDefaultValues = true) }
+        context { helpFormatter = {ctx -> MordantHelpFormatter(ctx, showDefaultValues = true)} }
     }
 
     override fun run() {
@@ -184,4 +184,3 @@ private suspend fun PipelineContext<Unit, ApplicationCall>.serveJarEntry(
         throw MissingJavadocException()
     }
 }
-
