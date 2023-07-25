@@ -45,6 +45,7 @@ import org.enginehub.rglovebox.byteunits.ByteUnit
 import org.enginehub.rglovebox.byteunits.ByteValue
 import org.enginehub.rglovebox.maven.api.*
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
 
@@ -53,6 +54,7 @@ class HttpMavenApi(repo: String, fsCacheSize: ByteValue) : MavenApi {
         expectSuccess = false
         engine {
             config {
+                callTimeout(1, TimeUnit.MINUTES)
                 cache(
                     Cache(
                         File("./cache/maven/"),
